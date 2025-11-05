@@ -20,10 +20,22 @@ Levqor is a job orchestration backend API built with Flask, providing AI automat
 - Created validation script for endpoint testing
 - Configured workflow to run on port 5000
 - Fixed deployment health checks with root (/) endpoint
-- Switched to Gunicorn production server
+- Switched to Gunicorn production server with 2 workers, 4 threads, 30s timeout
 - Added user profile management with SQLite database
 - Implemented idempotent email-based user upsert
 - Added user lookup, get, and patch endpoints
+- **Security Layer Added:**
+  - API key authentication for all POST/PATCH routes (X-Api-Key header)
+  - Rate limiting: 20 requests/minute per IP, 200 requests/minute global
+  - Structured logging with IP and User-Agent tracking
+  - Global error handler with exception logging
+  - Protected /api/v1/ops/health endpoint
+- **Database Optimizations:**
+  - SQLite WAL mode enabled for better concurrency
+  - Email index for fast user lookups
+  - PRAGMA optimizations (journal_mode=WAL, synchronous=NORMAL)
+  - Database backup script with WAL-aware copying
+- Fixed database path to use SQLITE_PATH (avoiding PostgreSQL DATABASE_URL conflict)
 
 ## Project Architecture
 
@@ -40,6 +52,7 @@ Levqor is a job orchestration backend API built with Flask, providing AI automat
 
 ### Scripts
 - `scripts/validate_levqor.py` - Endpoint validation script
+- `scripts/backup_db.sh` - Database backup script with WAL support
 
 #### Running the Validation Script
 The validation script tests all endpoints to ensure they're working correctly:
@@ -54,6 +67,18 @@ python scripts/validate_levqor.py
 
 On success, you'll see: `🟢 COCKPIT GREEN — Levqor backend validated`
 
+#### Database Backup
+Create consistent backups of the SQLite database:
+
+```bash
+# Backup the database
+./scripts/backup_db.sh
+
+# Backups are stored in backups/ directory with timestamps
+# Format: backups/levqor-YYYY-MM-DD-HHMMSS.db
+# Note: Script uses sqlite3 .backup if available, otherwise copies DB + WAL/SHM files
+```
+
 ### API Endpoints
 
 #### Root & Health
@@ -67,55 +92,90 @@ On success, you'll see: `🟢 COCKPIT GREEN — Levqor backend validated`
   - Returns: `{"uptime_rolling_7d": 99.99, "jobs_today": 0, "audit_coverage": 100, "last_updated": <timestamp>}`
 
 #### Job Management
-- `POST /api/v1/intake` - Submit a new job
+- `POST /api/v1/intake` - Submit a new job (requires API key)
+  - Headers: `X-Api-Key: <your-api-key>`
   - Body: `{"workflow": "string", "payload": {}, "callback_url": "string", "priority": "low|normal|high"}`
   - Returns: `{"job_id": "uuid", "status": "queued"}` (202 Accepted)
   
-- `GET /api/v1/status/<job_id>` - Check job status
+- `GET /api/v1/status/<job_id>` - Check job status (public)
   - Returns: `{"job_id": "uuid", "status": "queued|running|succeeded|failed", "created_at": <timestamp>, "result": {}, "error": {}}`
 
 #### Development
-- `POST /api/v1/_dev/complete/<job_id>` - Simulate job completion (dev only)
+- `POST /api/v1/_dev/complete/<job_id>` - Simulate job completion (dev only, requires API key)
+  - Headers: `X-Api-Key: <your-api-key>`
   - Body: `{"result": {}}`
   - Returns: `{"ok": true}`
 
+#### Operations
+- `GET /api/v1/ops/health` - Protected health check endpoint (requires API key)
+  - Headers: `X-Api-Key: <your-api-key>`
+  - Returns: `{"ok": true, "ts": <timestamp>}`
+
 #### User Management
-- `POST /api/v1/users/upsert` - Create or update user by email (idempotent)
+- `POST /api/v1/users/upsert` - Create or update user by email (idempotent, requires API key)
+  - Headers: `X-Api-Key: <your-api-key>`
   - Body: `{"email": "user@example.com", "name": "Name", "locale": "en-GB", "currency": "GBP|USD|EUR", "meta": {}}`
   - Returns: `{"created": true, "user": {...}}` (201) or `{"updated": true, "user": {...}}` (200)
   
-- `GET /api/v1/users?email=<email>` - Lookup user by email
+- `GET /api/v1/users?email=<email>` - Lookup user by email (public)
   - Returns: User object (200) or `{"error": "not_found"}` (404)
   
-- `GET /api/v1/users/<user_id>` - Get user by ID
+- `GET /api/v1/users/<user_id>` - Get user by ID (public)
   - Returns: User object (200) or `{"error": "not_found"}` (404)
   
-- `PATCH /api/v1/users/<user_id>` - Update user fields
+- `PATCH /api/v1/users/<user_id>` - Update user fields (requires API key)
+  - Headers: `X-Api-Key: <your-api-key>`
   - Body: `{"name": "New Name", "locale": "en-US", "currency": "USD", "meta": {"key": "value"}}`
   - Returns: `{"updated": true, "user": {...}}` (200)
 
 ### Security & CORS
-- CORS configured for `https://levqor.ai`
-- Security headers: X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy
-- JSON schema validation for all API requests
+- **Authentication:**
+  - API key-based authentication for all POST/PATCH routes
+  - Keys passed via `X-Api-Key` header
+  - Development mode: When `API_KEYS` env var not set, all requests allowed
+  - Production: Set `API_KEYS` environment variable (comma-separated values)
+- **Rate Limiting:**
+  - Per-IP burst limit: 20 requests/minute (configurable via `RATE_BURST`)
+  - Global limit: 200 requests/minute (configurable via `RATE_GLOBAL`)
+  - Returns 429 (Too Many Requests) when limits exceeded
+- **Logging:**
+  - Structured logging for all requests (method, path, IP, User-Agent)
+  - Exception logging with full traceback
+  - Log level: INFO
+- **CORS:**
+  - Configured for `https://levqor.ai`
+  - Allowed methods: GET, POST, OPTIONS, PATCH
+  - Allowed headers: Content-Type, Authorization, X-Api-Key
+- **Security Headers:**
+  - X-Content-Type-Options: nosniff
+  - X-Frame-Options: DENY
+  - Referrer-Policy: strict-origin-when-cross-origin
+  - Permissions-Policy: geolocation=(), microphone=()
+- **Input Validation:**
+  - JSON schema validation for all API requests
+  - Global error handler to prevent information leakage
 
 ### Current State
-- Production server (Gunicorn) running on port 5000
+- Production server (Gunicorn) running on port 5000 with 2 workers, 4 threads
 - In-memory job store (JOBS dictionary)
-- SQLite database for user profiles (levqor.db)
+- SQLite database for user profiles (levqor.db) with WAL mode enabled
 - All endpoints operational and tested
 - Deployment configured for Autoscale
 - Root endpoint (/) available for health checks
 - User management with email-based idempotent upsert
+- Comprehensive security layer with API key auth and rate limiting
+- Structured logging for all requests
+- Database backup script for consistent snapshots
 - Ready for production database migration (PostgreSQL or Redis)
 
 ## Next Phase
 - Replace in-memory job store with PostgreSQL or Redis
 - Implement real job orchestration queue (Celery, RQ, or similar)
-- Add authentication and API key management
-- Implement callback URL notifications
+- Implement callback URL notifications for job completion
 - Add cost tracking and guardrails enforcement
-- Deploy to production environment
+- Add API key management endpoints (create, revoke, list)
+- Implement usage analytics and monitoring
+- Deploy to production environment with API_KEYS configured
 
 ## User Preferences
 None documented yet.
