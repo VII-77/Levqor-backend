@@ -2,16 +2,31 @@ from flask import Flask, request, jsonify
 from jsonschema import validate, ValidationError
 from time import time
 from uuid import uuid4
+from collections import defaultdict, deque
 import sqlite3
 import json
 import os
+import logging
+import sys
+
+logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+log = logging.getLogger("levqor")
 
 app = Flask(__name__, 
     static_folder='public',
     static_url_path='/public')
 
-DB_PATH = os.environ.get("DATABASE_URL", os.path.join(os.getcwd(), "levqor.db"))
+DB_PATH = os.environ.get("SQLITE_PATH", os.path.join(os.getcwd(), "levqor.db"))
 _db_connection = None
+
+API_KEYS = set((os.environ.get("API_KEYS") or "").split(",")) - {""}
+
+RATE_BURST = int(os.environ.get("RATE_BURST", 20))
+RATE_GLOBAL = int(os.environ.get("RATE_GLOBAL", 200))
+WINDOW = 60
+
+_IP_HITS = defaultdict(deque)
+_ALL_HITS = deque()
 
 def get_db():
     global _db_connection
@@ -32,19 +47,58 @@ def get_db():
             updated_at REAL
           )
         """)
+        _db_connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email)")
+        _db_connection.execute("PRAGMA journal_mode=WAL")
+        _db_connection.execute("PRAGMA synchronous=NORMAL")
         _db_connection.commit()
     return _db_connection
+
+def require_key():
+    key = request.headers.get("X-Api-Key")
+    if not API_KEYS or key in API_KEYS:
+        return None
+    return jsonify({"error": "forbidden"}), 403
+
+def throttle():
+    now = time()
+    ip = request.headers.get("X-Forwarded-For", request.remote_addr) or "unknown"
+    
+    while _ALL_HITS and now - _ALL_HITS[0] > WINDOW:
+        _ALL_HITS.popleft()
+    dq = _IP_HITS[ip]
+    while dq and now - dq[0] > WINDOW:
+        dq.popleft()
+    
+    if len(_ALL_HITS) >= RATE_GLOBAL:
+        return True
+    if len(dq) >= RATE_BURST:
+        return True
+    
+    dq.append(now)
+    _ALL_HITS.append(now)
+    return False
+
+@app.before_request
+def _log_in():
+    log.info("in %s %s ip=%s ua=%s", request.method, request.path,
+             request.headers.get("X-Forwarded-For", request.remote_addr),
+             request.headers.get("User-Agent", "-"))
 
 @app.after_request
 def add_headers(r):
     r.headers["Access-Control-Allow-Origin"] = "https://levqor.ai"
-    r.headers["Access-Control-Allow-Methods"] = "GET,POST,OPTIONS"
-    r.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    r.headers["Access-Control-Allow-Methods"] = "GET,POST,OPTIONS,PATCH"
+    r.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Api-Key"
     r.headers["X-Content-Type-Options"] = "nosniff"
     r.headers["X-Frame-Options"] = "DENY"
     r.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     r.headers["Permissions-Policy"] = "geolocation=(), microphone=()"
     return r
+
+@app.errorhandler(Exception)
+def on_error(e):
+    log.exception("error: %s", e)
+    return jsonify({"error": "internal_error"}), 500
 
 @app.get("/")
 def root():
@@ -141,6 +195,12 @@ def fetch_user_by_id(uid):
 
 @app.post("/api/v1/intake")
 def intake():
+    guard = require_key()
+    if guard:
+        return guard
+    if throttle():
+        return jsonify({"error": "rate_limited"}), 429
+    
     if not request.is_json:
         return bad_request("Content-Type must be application/json")
     data = request.get_json(silent=True)
@@ -181,6 +241,12 @@ def status(job_id):
 
 @app.post("/api/v1/_dev/complete/<job_id>")
 def dev_complete(job_id):
+    guard = require_key()
+    if guard:
+        return guard
+    if throttle():
+        return jsonify({"error": "rate_limited"}), 429
+    
     job = JOBS.get(job_id)
     if not job:
         return jsonify({"error": "not_found"}), 404
@@ -191,6 +257,12 @@ def dev_complete(job_id):
 
 @app.post("/api/v1/users/upsert")
 def users_upsert():
+    guard = require_key()
+    if guard:
+        return guard
+    if throttle():
+        return jsonify({"error": "rate_limited"}), 429
+    
     if not request.is_json:
         return bad_request("Content-Type must be application/json")
     body = request.get_json(silent=True) or {}
@@ -225,6 +297,12 @@ def users_upsert():
 
 @app.patch("/api/v1/users/<user_id>")
 def users_patch(user_id):
+    guard = require_key()
+    if guard:
+        return guard
+    if throttle():
+        return jsonify({"error": "rate_limited"}), 429
+    
     if not request.is_json:
         return bad_request("Content-Type must be application/json")
     body = request.get_json(silent=True) or {}
@@ -265,6 +343,13 @@ def users_lookup():
     if not u:
         return jsonify({"error": "not_found", "email": email}), 404
     return jsonify(u), 200
+
+@app.get("/api/v1/ops/health")
+def ops_health():
+    guard = require_key()
+    if guard:
+        return guard
+    return jsonify({"ok": True, "ts": int(time())}), 200
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
