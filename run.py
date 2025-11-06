@@ -1067,33 +1067,65 @@ def ai_plan():
         return jsonify({"error": "description required"}), 400
     
     try:
+        import openai
+        
         pipeline_id = uuid4().hex
         
-        # Mock AI planning (replace with OpenAI GPT-5-mini when OPENAI_API_KEY is available)
-        # For now, return a template pipeline based on keywords
-        pipeline = {
-            "id": pipeline_id,
-            "description": description,
-            "trigger": "manual",
-            "actions": []
-        }
+        # Check if OpenAI API key is available
+        openai_key = os.getenv("OPENAI_API_KEY")
         
-        # Simple keyword-based pipeline generation
-        desc_lower = description.lower()
-        if "email" in desc_lower or "gmail" in desc_lower:
-            pipeline["trigger"] = "email.received"
-            pipeline["actions"].append({"type": "summarize", "connector": "ai"})
-        
-        if "slack" in desc_lower:
-            pipeline["actions"].append({"type": "sendSlack", "connector": "slack", "params": {"channel": "general"}})
-        
-        if "notion" in desc_lower:
-            pipeline["actions"].append({"type": "createPage", "connector": "notion"})
-        
-        if not pipeline["actions"]:
-            pipeline["actions"] = [
-                {"type": "log", "message": "Workflow executed"}
-            ]
+        if openai_key:
+            # Real AI planning using OpenAI GPT
+            client = openai.OpenAI(api_key=openai_key)
+            
+            system_prompt = """You are an automation workflow designer. Convert natural language descriptions into structured JSON pipelines.
+
+Available connectors: slack, notion, gmail, telegram
+Available triggers: manual, email.received, schedule, webhook
+Available action types: sendSlack, createPage, sendEmail, summarize, filter, transform, log
+
+Return ONLY a valid JSON object with this structure:
+{
+  "trigger": "trigger_type",
+  "actions": [
+    {"type": "action_type", "connector": "connector_name", "params": {...}}
+  ]
+}"""
+            
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": f"Create an automation pipeline for: {description}"}
+                ],
+                temperature=0.7,
+                max_tokens=500
+            )
+            
+            ai_response = response.choices[0].message.content.strip()
+            
+            # Parse AI response
+            try:
+                # Remove markdown code blocks if present
+                if "```json" in ai_response:
+                    ai_response = ai_response.split("```json")[1].split("```")[0].strip()
+                elif "```" in ai_response:
+                    ai_response = ai_response.split("```")[1].split("```")[0].strip()
+                
+                ai_pipeline = json.loads(ai_response)
+                pipeline = {
+                    "id": pipeline_id,
+                    "description": description,
+                    "trigger": ai_pipeline.get("trigger", "manual"),
+                    "actions": ai_pipeline.get("actions", [])
+                }
+            except json.JSONDecodeError:
+                # Fallback to keyword-based if AI response is invalid
+                log.warning(f"Invalid JSON from AI: {ai_response}")
+                pipeline = _fallback_pipeline(pipeline_id, description)
+        else:
+            # Fallback to keyword-based planning
+            pipeline = _fallback_pipeline(pipeline_id, description)
         
         # Save pipeline
         pipeline_path = f"data/pipelines/{pipeline_id}.json"
@@ -1105,6 +1137,31 @@ def ai_plan():
     except Exception as e:
         log.exception("AI planning error")
         return jsonify({"error": str(e)}), 500
+
+def _fallback_pipeline(pipeline_id, description):
+    """Fallback keyword-based pipeline generation"""
+    pipeline = {
+        "id": pipeline_id,
+        "description": description,
+        "trigger": "manual",
+        "actions": []
+    }
+    
+    desc_lower = description.lower()
+    if "email" in desc_lower or "gmail" in desc_lower:
+        pipeline["trigger"] = "email.received"
+        pipeline["actions"].append({"type": "summarize", "connector": "ai"})
+    
+    if "slack" in desc_lower:
+        pipeline["actions"].append({"type": "sendSlack", "connector": "slack", "params": {"channel": "general"}})
+    
+    if "notion" in desc_lower:
+        pipeline["actions"].append({"type": "createPage", "connector": "notion"})
+    
+    if not pipeline["actions"]:
+        pipeline["actions"] = [{"type": "log", "message": "Workflow executed"}]
+    
+    return pipeline
 
 @app.post("/api/v1/run")
 def run_pipeline():
