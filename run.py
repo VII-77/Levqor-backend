@@ -58,11 +58,17 @@ def get_db():
             locale TEXT,
             currency TEXT,
             meta TEXT,
+            credits_remaining INTEGER DEFAULT 50,
             created_at REAL,
             updated_at REAL
           )
         """)
         _db_connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email)")
+        try:
+            _db_connection.execute("ALTER TABLE users ADD COLUMN credits_remaining INTEGER DEFAULT 50")
+            _db_connection.commit()
+        except sqlite3.OperationalError:
+            pass
         _db_connection.execute("""
           CREATE TABLE IF NOT EXISTS metrics(
             id TEXT PRIMARY KEY,
@@ -584,8 +590,8 @@ def users_upsert():
     else:
         uid = uuid4().hex
         get_db().execute(
-            "INSERT INTO users(id,email,name,locale,currency,meta,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)",
-            (uid, email, name, locale, currency, meta, now, now)
+            "INSERT INTO users(id,email,name,locale,currency,meta,credits_remaining,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?)",
+            (uid, email, name, locale, currency, meta, 50, now, now)
         )
         get_db().commit()
         return jsonify({"created": True, "user": fetch_user_by_id(uid)}), 201
@@ -956,6 +962,100 @@ def selftest_integrations():
         results["gmail"] = "NOT_CONFIGURED"
     
     return jsonify(results), 200
+
+@app.post("/api/v1/credits/purchase")
+def purchase_credits():
+    """Purchase credit pack - $9 for 100 credits"""
+    body = request.get_json(silent=True) or {}
+    user_email = body.get("email")
+    
+    if not user_email:
+        return jsonify({"error": "email required"}), 400
+    
+    user = fetch_user_by_email(user_email)
+    if not user:
+        return jsonify({"error": "user_not_found"}), 404
+    
+    # Create Stripe checkout for $9 credit pack
+    try:
+        replit_domain = os.environ.get("REPLIT_DEV_DOMAIN")
+        if not replit_domain:
+            domains = os.environ.get("REPLIT_DOMAINS", "")
+            replit_domain = domains.split(",")[0] if domains else "api.levqor.ai"
+        
+        checkout_session = stripe.checkout.Session.create(
+            line_items=[{
+                "price_data": {
+                    "currency": "usd",
+                    "product_data": {
+                        "name": "Credit Pack - 100 Credits",
+                        "description": "100 automation credits for Levqor"
+                    },
+                    "unit_amount": 900
+                },
+                "quantity": 1
+            }],
+            mode="payment",
+            success_url=f"https://{replit_domain}/success?session_id={{CHECKOUT_SESSION_ID}}&credits=100",
+            cancel_url=f"https://{replit_domain}/cancel",
+            customer_email=user_email,
+            client_reference_id=user["id"],
+            metadata={"user_id": user["id"], "credits": "100"}
+        )
+        
+        return jsonify({"sessionId": checkout_session.id, "url": checkout_session.url}), 200
+    except Exception as e:
+        log.exception("Credit purchase error")
+        return jsonify({"error": str(e)}), 400
+
+@app.post("/api/v1/credits/add")
+def add_credits():
+    """Add credits to user account (internal/webhook use)"""
+    guard = require_key()
+    if guard:
+        return guard
+    
+    body = request.get_json(silent=True) or {}
+    user_id = body.get("user_id")
+    credits = body.get("credits", 0)
+    
+    if not user_id or credits <= 0:
+        return jsonify({"error": "user_id and positive credits required"}), 400
+    
+    try:
+        db = get_db()
+        db.execute(
+            "UPDATE users SET credits_remaining = credits_remaining + ? WHERE id = ?",
+            (credits, user_id)
+        )
+        db.commit()
+        
+        updated_user = fetch_user_by_id(user_id)
+        return jsonify({"status": "ok", "credits_added": credits, "new_balance": updated_user.get("credits_remaining")}), 200
+    except Exception as e:
+        log.exception("Add credits error")
+        return jsonify({"error": str(e)}), 500
+
+def deduct_credit(user_id):
+    """Deduct one credit from user. Returns True if successful, False if insufficient credits."""
+    try:
+        db = get_db()
+        user = fetch_user_by_id(user_id)
+        if not user:
+            return False
+        
+        credits = user.get("credits_remaining", 0)
+        if credits <= 0:
+            return False
+        
+        db.execute(
+            "UPDATE users SET credits_remaining = credits_remaining - 1 WHERE id = ?",
+            (user_id,)
+        )
+        db.commit()
+        return True
+    except Exception:
+        return False
 
 @app.post("/api/v1/connect/<name>")
 def connect(name):
