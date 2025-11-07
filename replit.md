@@ -108,7 +108,11 @@ Levqor is an enterprise-ready AI automation job orchestration backend API built 
 - Generated SPRINT_COMPLETION_REPORT.md (comprehensive delivery summary)
 
 ## User Preferences
-None documented yet.
+
+### Integration Preferences
+- **Resend Email:** Manual API key management preferred (Replit connector declined 2025-11-07)
+- **Stripe:** Manual secret management in use (STRIPE_SECRET_KEY configured)
+- **OpenAI:** Manual API key in use (OPENAI_API_KEY configured)
 
 ## System Architecture
 
