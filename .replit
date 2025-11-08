@@ -2,13 +2,6 @@ modules = ["nodejs-20", "python-3.11"]
 [agent]
 expertMode = true
 
-<<<<<<< HEAD
-=======
-[[ports]]
-localPort = 5000
-externalPort = 80
-
->>>>>>> 07ba24f (Saved progress at the end of the loop)
 [workflows]
 runButton = "Project"
 
@@ -36,6 +29,10 @@ waitForPort = 5000
 [[ports]]
 localPort = 5000
 externalPort = 80
+
+[[ports]]
+localPort = 44793
+externalPort = 3000
 
 [deployment]
 deploymentTarget = "autoscale"
