@@ -2,18 +2,6 @@ modules = ["python-3.11"]
 [agent]
 expertMode = true
 
-[[ports]]
-localPort = 5000
-externalPort = 80
-
-[[ports]]
-localPort = 35209
-externalPort = 3000
-
-[[ports]]
-localPort = 45455
-externalPort = 3001
-
 [workflows]
 runButton = "Project"
 
@@ -30,14 +18,22 @@ args = "levqor-backend"
 name = "levqor-backend"
 author = "agent"
 
+[workflows.workflow.metadata]
+outputType = "webview"
+
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "gunicorn --workers ${GUNICORN_WORKERS:-2} --threads ${GUNICORN_THREADS:-4} --timeout ${GUNICORN_TIMEOUT:-30} --graceful-timeout 20 --bind 0.0.0.0:5000 --reuse-port --log-level info run:app"
 waitForPort = 5000
 
-[workflows.workflow.metadata]
-outputType = "webview"
+[[ports]]
+localPort = 5000
+externalPort = 80
 
 [deployment]
 deploymentTarget = "autoscale"
-run = ["gunicorn", "--workers", "2", "--threads", "4", "--timeout", "30", "--graceful-timeout", "20", "--bind", "0.0.0.0:5000", "--reuse-port", "--log-level", "info", "run:app"]
+run = ["gunicorn", "--workers", "2", "--threads", "4", "--timeout", "30", "--bind", "0.0.0.0:5000", "--reuse-port", "--log-level", "info", "run:app"]
+build = ["sh", "-c", "BUILD_ID=2025-11-05.1"]
+
+[nix]
+channel = "stable-25_05"
