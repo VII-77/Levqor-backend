@@ -1,77 +1,80 @@
-import { NextResponse } from "next/server";
 import Stripe from "stripe";
+import { NextResponse } from "next/server";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, { apiVersion: "2025-10-29.clover" });
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
-function getPriceId(plan: "starter"|"pro"|"business", term: "monthly"|"yearly") {
-  const STARTER_M = process.env.STRIPE_PRICE_STARTER;
-  const STARTER_Y = process.env.STRIPE_PRICE_STARTER_YEAR;
-  const PRO_M     = process.env.STRIPE_PRICE_PRO;
-  const PRO_Y     = process.env.STRIPE_PRICE_PRO_YEAR;
-  const BUS_M     = process.env.STRIPE_PRICE_BUSINESS;
-  const BUS_Y     = process.env.STRIPE_PRICE_BUSINESS_YEAR;
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
+  apiVersion: "2025-10-29.clover",
+});
 
-  const STARTER_M_ID = process.env.STRIPE_PRICE_ID_STARTER;
-  const PRO_M_ID     = process.env.STRIPE_PRICE_ID_PRO;
-  const BUS_M_ID     = process.env.STRIPE_PRICE_ID_BUSINESS;
+type Body = {
+  plan: "starter" | "pro" | "business";
+  term: "monthly" | "yearly";
+  addons?: string[];
+};
 
-  const map: Record<string, string | undefined> = {
-    "starter-monthly": STARTER_M ?? STARTER_M_ID,
-    "starter-yearly":  STARTER_Y,
-    "pro-monthly":     PRO_M ?? PRO_M_ID,
-    "pro-yearly":      PRO_Y,
-    "business-monthly":BUS_M ?? BUS_M_ID,
-    "business-yearly": BUS_Y,
-  };
-  return map[`${plan}-${term}`];
+function priceEnvFor(plan: string, term: string) {
+  const key =
+    term === "yearly"
+      ? `STRIPE_PRICE_${plan.toUpperCase()}_YEAR`
+      : `STRIPE_PRICE_${plan.toUpperCase()}`;
+  return process.env[key];
+}
+
+function addonEnvFor(code: string) {
+  return process.env[`STRIPE_PRICE_ADDON_${code.toUpperCase()}`];
 }
 
 export async function POST(req: Request) {
   try {
-    const { plan, term, addons } = await req.json();
-    if (!["starter","pro","business"].includes(plan)) {
-      return NextResponse.json({ ok:false, error:"bad_plan" }, { status:400 });
-    }
-    if (!["monthly","yearly"].includes(term)) {
-      return NextResponse.json({ ok:false, error:"bad_term" }, { status:400 });
-    }
+    const { plan, term, addons = [] } = (await req.json()) as Body;
 
-    const priceId = getPriceId(plan, term);
-    if (!priceId) {
-      return NextResponse.json(
-        { ok:false, error:`price_not_configured`, detail:{ plan, term, schemeHints:{
-          STRIPE_PRICE_STARTER: !!process.env.STRIPE_PRICE_STARTER,
-          STRIPE_PRICE_STARTER_YEAR: !!process.env.STRIPE_PRICE_STARTER_YEAR,
-          STRIPE_PRICE_PRO: !!process.env.STRIPE_PRICE_PRO,
-          STRIPE_PRICE_PRO_YEAR: !!process.env.STRIPE_PRICE_PRO_YEAR,
-          STRIPE_PRICE_BUSINESS: !!process.env.STRIPE_PRICE_BUSINESS,
-          STRIPE_PRICE_BUSINESS_YEAR: !!process.env.STRIPE_PRICE_BUSINESS_YEAR,
-          STRIPE_PRICE_ID_STARTER: !!process.env.STRIPE_PRICE_ID_STARTER,
-          STRIPE_PRICE_ID_PRO: !!process.env.STRIPE_PRICE_ID_PRO,
-          STRIPE_PRICE_ID_BUSINESS: !!process.env.STRIPE_PRICE_ID_BUSINESS,
-        }}},
-        { status:400 }
-      );
+    const base = priceEnvFor(plan, term);
+    if (!base) throw new Error(`Missing price for ${plan}/${term}`);
+
+    const line_items: Stripe.Checkout.SessionCreateParams.LineItem[] = [
+      { price: base, quantity: 1 },
+    ];
+    for (const code of addons) {
+      const p = addonEnvFor(code);
+      if (!p) throw new Error(`Missing add-on price: ${code}`);
+      line_items.push({ price: p, quantity: 1 });
     }
 
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
-      line_items: [{ price: priceId, quantity: 1 }],
+      line_items,
       allow_promotion_codes: true,
-      automatic_tax: { enabled: true },
-      success_url: `${process.env.SITE_URL}/success`,
-      cancel_url:  `${process.env.SITE_URL}/pricing`,
+      success_url: `${process.env.SITE_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.SITE_URL}/pricing`,
     });
 
-    return NextResponse.json({ ok:true, url: session.url });
-  } catch (e:any) {
-    return NextResponse.json({ ok:false, error:"handler_failed", detail:e?.message }, { status:500 });
+    if (!session.url) throw new Error("No session URL returned");
+    return NextResponse.json({ ok: true, url: session.url });
+  } catch (e: any) {
+    console.error("Checkout error:", e?.message || e);
+    return NextResponse.json(
+      { ok: false, error: e?.message || "internal_error" },
+      { status: 500 }
+    );
   }
 }
 
-export async function GET(req: Request) {
-  const u = new URL(req.url);
-  const plan = (u.searchParams.get("plan") ?? "").toLowerCase();
-  const term = (u.searchParams.get("term") ?? "").toLowerCase();
-  return POST(new Request(u.toString(), { method:"POST", body: JSON.stringify({ plan, term }) }));
+export async function GET() {
+  const keys = [
+    "STRIPE_SECRET_KEY",
+    "SITE_URL",
+    "STRIPE_PRICE_STARTER",
+    "STRIPE_PRICE_STARTER_YEAR",
+    "STRIPE_PRICE_PRO",
+    "STRIPE_PRICE_PRO_YEAR",
+    "STRIPE_PRICE_BUSINESS",
+    "STRIPE_PRICE_BUSINESS_YEAR",
+    "STRIPE_PRICE_ADDON_PRIORITY_SUPPORT",
+    "STRIPE_PRICE_ADDON_SLA_99_9",
+    "STRIPE_PRICE_ADDON_WHITE_LABEL",
+  ];
+  const missing = keys.filter((k) => !process.env[k]);
+  return NextResponse.json({ ok: true, missing });
 }
