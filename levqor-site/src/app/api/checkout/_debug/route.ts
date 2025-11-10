@@ -1,19 +1,16 @@
 import { NextResponse } from "next/server";
-
-export function GET() {
-  return NextResponse.json({
-    sees: {
-      STRIPE_PRICE_STARTER: !!process.env.STRIPE_PRICE_STARTER,
-      STRIPE_PRICE_STARTER_YEAR: !!process.env.STRIPE_PRICE_STARTER_YEAR,
-      STRIPE_PRICE_PRO: !!process.env.STRIPE_PRICE_PRO,
-      STRIPE_PRICE_PRO_YEAR: !!process.env.STRIPE_PRICE_PRO_YEAR,
-      STRIPE_PRICE_BUSINESS: !!process.env.STRIPE_PRICE_BUSINESS,
-      STRIPE_PRICE_BUSINESS_YEAR: !!process.env.STRIPE_PRICE_BUSINESS_YEAR,
-      STRIPE_PRICE_ID_STARTER: !!process.env.STRIPE_PRICE_ID_STARTER,
-      STRIPE_PRICE_ID_PRO: !!process.env.STRIPE_PRICE_ID_PRO,
-      STRIPE_PRICE_ID_BUSINESS: !!process.env.STRIPE_PRICE_ID_BUSINESS,
-      SITE_URL: !!process.env.SITE_URL,
-      STRIPE_SECRET_KEY: !!process.env.STRIPE_SECRET_KEY,
-    }
-  });
+export const dynamic = "force-dynamic";
+export async function GET() {
+  const keys = [
+    "STRIPE_SECRET_KEY","SITE_URL",
+    "STRIPE_PRICE_STARTER","STRIPE_PRICE_STARTER_YEAR",
+    "STRIPE_PRICE_PRO","STRIPE_PRICE_PRO_YEAR",
+    "STRIPE_PRICE_BUSINESS","STRIPE_PRICE_BUSINESS_YEAR",
+    "STRIPE_PRICE_ADDON_PRIORITY_SUPPORT",
+    "STRIPE_PRICE_ADDON_SLA_99_9",
+    "STRIPE_PRICE_ADDON_WHITE_LABEL"
+  ];
+  const present = keys.filter(k => process.env[k] && String(process.env[k]).trim() !== "");
+  const missing = keys.filter(k => !present.includes(k));
+  return NextResponse.json({ present, missing });
 }
