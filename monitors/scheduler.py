@@ -141,6 +141,74 @@ def run_governance_report():
     except Exception as e:
         log.error(f"Governance report error: {e}")
 
+def run_health_monitor():
+    """Health & uptime monitoring - every 6 hours"""
+    log.info("Running health monitor...")
+    try:
+        result = subprocess.run(
+            ["python3", "scripts/automation/health_monitor.py"],
+            capture_output=True,
+            text=True,
+            timeout=60
+        )
+        if result.returncode == 0:
+            log.info("✅ Health check passed")
+        else:
+            log.warning(f"Health check alerts: {result.stdout}")
+    except Exception as e:
+        log.error(f"Health monitor error: {e}")
+
+def run_cost_collector():
+    """Cost dashboard data collection - daily"""
+    log.info("Running cost collector...")
+    try:
+        result = subprocess.run(
+            ["python3", "scripts/automation/cost_collector.py"],
+            capture_output=True,
+            text=True,
+            timeout=60
+        )
+        if result.returncode == 0:
+            log.info("✅ Cost data collected")
+        else:
+            log.warning(f"Cost collector alerts: {result.stdout}")
+    except Exception as e:
+        log.error(f"Cost collector error: {e}")
+
+def run_sentry_test():
+    """Sentry health check - weekly"""
+    log.info("Running Sentry test...")
+    try:
+        result = subprocess.run(
+            ["python3", "scripts/automation/sentry_test.py"],
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+        if result.returncode == 0:
+            log.info("✅ Sentry test passed")
+        else:
+            log.error(f"Sentry test failed: {result.stderr}")
+    except Exception as e:
+        log.error(f"Sentry test error: {e}")
+
+def run_weekly_pulse():
+    """Weekly pulse summary - every Friday"""
+    log.info("Running weekly pulse...")
+    try:
+        result = subprocess.run(
+            ["python3", "scripts/automation/weekly_pulse.py"],
+            capture_output=True,
+            text=True,
+            timeout=120
+        )
+        if result.returncode == 0:
+            log.info("✅ Weekly pulse sent")
+        else:
+            log.error(f"Weekly pulse failed: {result.stderr}")
+    except Exception as e:
+        log.error(f"Weekly pulse error: {e}")
+
 def init_scheduler():
     """Initialize and start APScheduler"""
     try:
@@ -207,8 +275,41 @@ def init_scheduler():
             replace_existing=True
         )
         
+        scheduler.add_job(
+            run_health_monitor,
+            'interval',
+            hours=6,
+            id='health_monitor',
+            name='Health & uptime monitor',
+            replace_existing=True
+        )
+        
+        scheduler.add_job(
+            run_cost_collector,
+            CronTrigger(hour=1, minute=0, timezone='UTC'),
+            id='cost_collector',
+            name='Daily cost dashboard',
+            replace_existing=True
+        )
+        
+        scheduler.add_job(
+            run_sentry_test,
+            CronTrigger(day_of_week='sun', hour=10, minute=0, timezone='UTC'),
+            id='sentry_test',
+            name='Weekly Sentry health check',
+            replace_existing=True
+        )
+        
+        scheduler.add_job(
+            run_weekly_pulse,
+            CronTrigger(day_of_week='fri', hour=14, minute=0, timezone='Europe/London'),
+            id='weekly_pulse',
+            name='Weekly pulse summary',
+            replace_existing=True
+        )
+        
         scheduler.start()
-        log.info("✅ APScheduler initialized with 7 jobs")
+        log.info("✅ APScheduler initialized with 11 jobs")
         return scheduler
         
     except ImportError:
