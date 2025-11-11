@@ -52,6 +52,7 @@ export default function Home() {
   return (
     <main className="min-h-screen">
       <JsonLd data={structuredData} />
+      
       {/* Hero Section */}
       <section className="max-w-6xl mx-auto px-6 py-20 text-center">
         <div className="mb-6">
