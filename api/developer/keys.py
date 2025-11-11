@@ -9,6 +9,17 @@ import secrets
 from time import time
 from datetime import datetime, timedelta
 import sqlite3
+import sys
+import os
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+
+try:
+    from scripts.helpers.notion_api_keys import log_api_key_creation, revoke_api_key_in_notion
+    NOTION_AVAILABLE = True
+except ImportError:
+    NOTION_AVAILABLE = False
+    print("⚠️ Notion helper not available")
 
 bp = Blueprint("developer_keys", __name__, url_prefix="/api/developer")
 
@@ -135,6 +146,13 @@ def create_api_key():
         db.commit()
         db.close()
         
+        # Log to Notion if available
+        if NOTION_AVAILABLE:
+            try:
+                log_api_key_creation(user_id, key_id, tier, TIER_LIMITS[tier])
+            except Exception as e:
+                print(f"⚠️ Notion logging failed: {e}")
+        
         return jsonify({
             "ok": True,
             "key": full_key,  # Only shown once!
@@ -249,6 +267,13 @@ def revoke_api_key(key_id):
         
         db.commit()
         db.close()
+        
+        # Log to Notion if available
+        if NOTION_AVAILABLE:
+            try:
+                revoke_api_key_in_notion(key_id)
+            except Exception as e:
+                print(f"⚠️ Notion revoke logging failed: {e}")
         
         return jsonify({
             "ok": True,
