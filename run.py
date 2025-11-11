@@ -293,8 +293,43 @@ def add_headers(r):
 
 @app.errorhandler(Exception)
 def on_error(e):
-    log.exception("error: %s", e)
-    return jsonify({"error": "internal_error"}), 500
+    """Global error handler with correlation ID support"""
+    from werkzeug.exceptions import HTTPException
+    import os
+    
+    cid = request.headers.get("X-Request-ID") or request.headers.get("X-Correlation-ID", "unknown")
+    debug = os.getenv("INTEL_DEBUG_ERRORS", "false").lower() in ("1", "true", "yes", "on")
+    
+    # Pass through HTTP exceptions (404, etc.)
+    if isinstance(e, HTTPException):
+        log.warning(f"HTTP {e.code}: {e.description} [cid={cid}]")
+        return jsonify({
+            "error": {
+                "type": e.__class__.__name__,
+                "message": e.description,
+                "status": e.code,
+                "correlation_id": cid
+            }
+        }), e.code
+    
+    # Log full exception details
+    log.exception("error: %s [cid=%s]", e, cid)
+    
+    # Return structured error response
+    error_payload = {
+        "error": {
+            "type": e.__class__.__name__,
+            "message": str(e)[:500],
+            "status": 500,
+            "correlation_id": cid
+        }
+    }
+    
+    if debug:
+        import traceback
+        error_payload["error"]["trace"] = traceback.format_exc().splitlines()[-10:]
+    
+    return jsonify(error_payload), 500
 
 @app.get("/")
 def root():
