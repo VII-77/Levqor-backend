@@ -23,6 +23,7 @@ def get_db_connection():
 
 def check_error_rate():
     """Check if error rate exceeds 0.5%"""
+    error_rate = 0.0
     with get_db_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("""
@@ -47,7 +48,7 @@ def check_error_rate():
                         "message": f"Error rate {error_rate:.2f}% exceeds threshold {ERROR_RATE_THRESHOLD}%"
                     }
             
-            return {"alert": False, "metric": "error_rate", "value": error_rate if row else 0}
+            return {"alert": False, "metric": "error_rate", "value": error_rate}
 
 def check_5xx_burst():
     """Check for 5xx error bursts (>5 errors in 1 minute)"""

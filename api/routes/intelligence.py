@@ -39,10 +39,14 @@ def get_intelligence_status():
         })
     except Exception as e:
         import traceback
+        import logging
+        log = logging.getLogger('levqor.intelligence')
+        log.error(f"Intelligence status error: {e}")
         traceback.print_exc()
         return jsonify({
             "status": "error",
             "error": str(e),
+            "error_type": type(e).__name__,
             "timestamp": datetime.utcnow().isoformat()
         }), 500
 
