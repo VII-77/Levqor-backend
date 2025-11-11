@@ -147,6 +147,25 @@ def get_db():
         _db_connection.execute("CREATE INDEX IF NOT EXISTS idx_api_usage_log_key_id ON api_usage_log(key_id)")
         _db_connection.execute("CREATE INDEX IF NOT EXISTS idx_api_usage_log_created_at ON api_usage_log(created_at)")
         
+        _db_connection.execute("""
+          CREATE TABLE IF NOT EXISTS partners(
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            email TEXT NOT NULL,
+            webhook_url TEXT,
+            revenue_share REAL NOT NULL DEFAULT 0.7,
+            is_verified INTEGER NOT NULL DEFAULT 0,
+            is_active INTEGER NOT NULL DEFAULT 1,
+            stripe_connect_id TEXT,
+            created_at REAL NOT NULL,
+            updated_at REAL NOT NULL,
+            metadata TEXT
+          )
+        """)
+        _db_connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_partners_email ON partners(email)")
+        _db_connection.execute("CREATE INDEX IF NOT EXISTS idx_partners_verified ON partners(is_verified)")
+        _db_connection.execute("CREATE INDEX IF NOT EXISTS idx_partners_active ON partners(is_active)")
+        
         _db_connection.execute("PRAGMA journal_mode=WAL")
         _db_connection.execute("PRAGMA synchronous=NORMAL")
         _db_connection.commit()
@@ -854,6 +873,7 @@ from api.developer.keys import bp as developer_keys_bp
 from api.developer.sandbox import bp as developer_sandbox_bp
 from api.routes.insights.preview import bp as insights_preview_bp
 from api.routes.insights.report import bp as insights_report_bp
+from modules.partner_api.registry import bp as partner_registry_bp
 
 app.register_blueprint(flags_bp)
 app.register_blueprint(ledger_bp)
@@ -871,6 +891,7 @@ app.register_blueprint(developer_keys_bp)
 app.register_blueprint(developer_sandbox_bp)
 app.register_blueprint(insights_preview_bp)
 app.register_blueprint(insights_report_bp)
+app.register_blueprint(partner_registry_bp)
 
 @app.get("/ops/auto_tune")
 def auto_tune_endpoint():
