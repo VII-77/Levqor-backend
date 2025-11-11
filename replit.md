@@ -45,7 +45,13 @@ The frontend is built with Next.js 14 and TypeScript, focusing on a clear authen
     - Dynamic Discount System: Usage-aware discount code generation
     - Profit-Driven Autoscale: Prevents scale-up when margin < 10%
     - Weekly Governance Reporter: Automated HTML email summaries
-    - APScheduler: 7 automated jobs (retention, SLO, ops, cost, KV sync, growth, governance)
+    - APScheduler: 11 automated jobs (retention, SLO, ops, cost, KV sync, growth, governance, health, cost collector, Sentry, pulse)
+- **After-Launch Automation** (Nov 11, 2025):
+    - Health Monitor: 6-hour endpoint checks for levqor.ai and api.levqor.ai/health
+    - Cost Collector: Daily Stripe revenue and spend tracking
+    - Sentry Test: Weekly error tracking health verification
+    - Weekly Pulse: Friday summary of uptime, revenue, users, and churn
+    - All automation integrated into APScheduler (scripts/automation/*.py)
 
 ### Feature Specifications
 - **Job Orchestration**: Intake, status tracking, and simulated completion for development.
