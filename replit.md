@@ -59,11 +59,20 @@ The frontend is built with Next.js 14 and TypeScript, focusing on a clear authen
     - Stripe product configured (One-time: $49, Monthly: $19)
     - Complete CLI runner and documentation
     - Revenue-ready sellable feature for enterprise customers
+    - Notion auto-logging for every integrity run with pass/fail status
 - **Notion Integration** (Nov 11, 2025):
     - Helper module for Notion API integration
     - Automation scripts updated to log to Notion databases
     - System Health Log, Cost Dashboard, and Pulse tracking
     - Test script for verifying Notion connectivity
+- **Expansion Monitoring Infrastructure** (Nov 11, 2025):
+    - Enhanced weekly_pulse.py with 4 expansion metrics: integrity runs, template sales, API revenue, white-label inquiries
+    - Extended cost_collector.py with Stripe fees, addon revenue, and net margin calculation
+    - Integrity Pack auto-logs results to NOTION_INTEGRITY_DB_ID with pass/fail status
+    - Created expansion_verifier.py for nightly health checks (Notion, Stripe, cost thresholds)
+    - Created generate_expansion_monitor.py for weekly auto-generated EXPANSION-MONITOR.md reports
+    - APScheduler expanded to 13 jobs: added expansion_verifier (nightly 2 AM UTC) and expansion_monitor (Friday 3 PM London)
+    - Comprehensive tracking for all 4 expansion products: Integrity Pack, Template Library, API Tier, White-Label Edition
 
 ### Feature Specifications
 - **Job Orchestration**: Intake, status tracking, and simulated completion for development.
