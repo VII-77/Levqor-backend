@@ -1,10 +1,8 @@
-import Link from 'next/link';
-import { auth } from '@/auth';
+'use client';
 
-export const metadata = {
-  title: 'Developer Portal | Levqor',
-  description: 'Build powerful automation workflows with the Levqor API. Get your API key and start building today.',
-};
+import Link from 'next/link';
+import { useSession } from 'next-auth/react';
+import { useState } from 'react';
 
 const tiers = [
   {
@@ -103,8 +101,37 @@ const job = await client.jobs.create({
 const status = await client.jobs.get(job.id);
 console.log(status);`;
 
-export default async function DeveloperPage() {
-  const session = await auth();
+export default function DeveloperPage() {
+  const { data: session } = useSession();
+  const [upgrading, setUpgrading] = useState(false);
+
+  const handleUpgrade = async (tier: 'pro' | 'enterprise') => {
+    if (!session) {
+      window.location.href = '/signin?callbackUrl=/developer';
+      return;
+    }
+
+    setUpgrading(true);
+    try {
+      const res = await fetch('/api/portal/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tier }),
+      });
+
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        alert('Failed to start checkout. Please try again.');
+        setUpgrading(false);
+      }
+    } catch (error) {
+      console.error('Checkout error:', error);
+      alert('An error occurred. Please try again.');
+      setUpgrading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white dark:from-gray-900 dark:to-gray-800">
@@ -257,16 +284,29 @@ export default async function DeveloperPage() {
                 ))}
               </ul>
 
-              <Link
-                href={tier.href}
-                className={`block w-full text-center py-3 px-6 rounded-lg font-semibold transition-colors ${
-                  tier.highlighted
-                    ? 'bg-blue-600 text-white hover:bg-blue-700'
-                    : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-300 dark:hover:bg-gray-600'
-                }`}
-              >
-                {tier.cta}
-              </Link>
+              {tier.name === 'Sandbox' ? (
+                <Link
+                  href="/developer/keys"
+                  className="block w-full text-center py-3 px-6 rounded-lg font-semibold transition-colors bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-300 dark:hover:bg-gray-600"
+                >
+                  {tier.cta}
+                </Link>
+              ) : tier.name === 'Enterprise' ? (
+                <Link
+                  href="/contact"
+                  className="block w-full text-center py-3 px-6 rounded-lg font-semibold transition-colors bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-300 dark:hover:bg-gray-600"
+                >
+                  {tier.cta}
+                </Link>
+              ) : (
+                <button
+                  onClick={() => handleUpgrade('pro')}
+                  disabled={upgrading}
+                  className="block w-full text-center py-3 px-6 rounded-lg font-semibold transition-colors bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {upgrading ? 'Processing...' : tier.cta}
+                </button>
+              )}
             </div>
           ))}
         </div>
