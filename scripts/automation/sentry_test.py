@@ -11,8 +11,9 @@ def test_sentry():
     """Test Sentry error tracking"""
     sentry_dsn = os.getenv("SENTRY_DSN")
     
-    if not sentry_dsn:
-        print("❌ SENTRY_DSN not configured")
+    if not sentry_dsn or sentry_dsn.strip() == "":
+        print("❌ SENTRY_DSN not configured or empty")
+        print("ℹ️  Set SENTRY_DSN in Secrets to enable Sentry tracking")
         return False
     
     try:
