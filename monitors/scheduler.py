@@ -8,6 +8,35 @@ from datetime import datetime
 
 log = logging.getLogger("levqor.scheduler")
 
+def run_intelligence_monitor():
+    """Every 15 minutes - Intelligence monitoring cycle"""
+    log.info("Running intelligence monitor...")
+    try:
+        from scripts.automation.intelligence_monitor import run_intelligence_cycle
+        run_intelligence_cycle()
+        log.info("✅ Intelligence monitor complete")
+    except Exception as e:
+        log.error(f"Intelligence monitor error: {e}")
+
+def run_weekly_intelligence():
+    """Weekly - AI insights and trend analysis"""
+    log.info("Running weekly intelligence analysis...")
+    try:
+        from scripts.automation.intelligence_monitor import run_weekly_analysis
+        run_weekly_analysis()
+        log.info("✅ Weekly intelligence analysis complete")
+    except Exception as e:
+        log.error(f"Weekly intelligence error: {e}")
+
+def run_scaling_check():
+    """Hourly - Dynamic scaling check"""
+    log.debug("Running scaling check...")
+    try:
+        from modules.autoscale import check_load
+        check_load()
+    except Exception as e:
+        log.error(f"Scaling check error: {e}")
+
 def run_retention_aggregation():
     """Daily retention metrics aggregation"""
     log.info("Running retention aggregation...")
@@ -358,8 +387,34 @@ def init_scheduler():
             replace_existing=True
         )
         
+        scheduler.add_job(
+            run_intelligence_monitor,
+            'interval',
+            minutes=15,
+            id='intelligence_monitor',
+            name='Intelligence monitoring cycle',
+            replace_existing=True
+        )
+        
+        scheduler.add_job(
+            run_weekly_intelligence,
+            CronTrigger(day_of_week='sun', hour=10, minute=30, timezone='UTC'),
+            id='weekly_intelligence',
+            name='Weekly AI insights & trends',
+            replace_existing=True
+        )
+        
+        scheduler.add_job(
+            run_scaling_check,
+            'interval',
+            hours=1,
+            id='scaling_check',
+            name='Hourly scaling check',
+            replace_existing=True
+        )
+        
         scheduler.start()
-        log.info("✅ APScheduler initialized with 13 jobs")
+        log.info("✅ APScheduler initialized with 16 jobs (including 3 intelligence jobs)")
         return scheduler
         
     except ImportError:

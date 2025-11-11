@@ -919,6 +919,7 @@ from api.routes.insights.preview import bp as insights_preview_bp
 from api.routes.insights.report import bp as insights_report_bp
 from modules.partner_api.registry import bp as partner_registry_bp
 from modules.marketplace.listings import bp as marketplace_listings_bp
+from api.routes.intelligence import bp as intelligence_bp
 
 app.register_blueprint(flags_bp)
 app.register_blueprint(ledger_bp)
@@ -938,6 +939,7 @@ app.register_blueprint(insights_preview_bp)
 app.register_blueprint(insights_report_bp)
 app.register_blueprint(partner_registry_bp)
 app.register_blueprint(marketplace_listings_bp)
+app.register_blueprint(intelligence_bp)
 
 @app.get("/ops/auto_tune")
 def auto_tune_endpoint():
