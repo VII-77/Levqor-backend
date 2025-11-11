@@ -1,9 +1,7 @@
 # Levqor Backend
 
 ## Overview
-Levqor is a Flask-based job orchestration backend API designed for AI automation. It features robust validation, cost guardrails, job intake, status tracking, and comprehensive health monitoring. The project aims to provide a reliable and scalable solution for managing automated workflows, incorporating a full-stack approach with a Next.js frontend for user interaction.
-
-**🧠 v7.0 Intelligence Layer:** The platform now features autonomous self-optimization with AI-powered monitoring, anomaly detection, predictive analytics, and auto-scaling capabilities.
+Levqor is a Flask-based job orchestration backend API designed for AI automation. It offers robust validation, cost guardrails, job intake, status tracking, and comprehensive health monitoring. The project aims to provide a reliable and scalable solution for managing automated workflows, incorporating a full-stack approach with a Next.js frontend. The platform includes an autonomous self-optimization layer with AI-powered monitoring, anomaly detection, predictive analytics, and auto-scaling capabilities.
 
 ## User Preferences
 None documented yet.
@@ -11,166 +9,71 @@ None documented yet.
 ## System Architecture
 
 ### UI/UX Decisions
-The frontend is built with Next.js 14 and TypeScript, focusing on a clear authentication flow using Resend for magic link authentication. It includes a protected dashboard for authenticated users. Public pages serve legal documentation and FAQs.
+The frontend is built with Next.js 14 and TypeScript, featuring a clear authentication flow using Resend for magic links and a protected dashboard for authenticated users. Public pages provide legal documentation and FAQs.
 
 ### Technical Implementations
-- **Backend Core**: Flask application managing API endpoints, job intake, status tracking, and health monitoring. It uses Gunicorn for production deployment, supporting 2 workers and 4 threads.
-- **Frontend Core**: Next.js 14 application with `src/app/` for App Router pages, `src/auth.ts` for NextAuth v5 configuration, and `src/middleware.ts` for route protection.
-- **Job Management**: In-memory storage for jobs, with planned migration to PostgreSQL or Redis.
-- **User Management**: Idempotent email-based user upsert, lookup, get, and patch functionalities. Uses an SQLite database for local development and PostgreSQL for production.
+- **Backend Core**: Flask application managing API endpoints, job intake, status tracking, and health monitoring, deployed with Gunicorn.
+- **Frontend Core**: Next.js 14 application utilizing `src/app/` for App Router pages and NextAuth v5 for authentication.
+- **Job Management**: In-memory storage for jobs, with future plans for PostgreSQL or Redis integration.
+- **User Management**: Idempotent email-based user management with an SQLite database for local development and PostgreSQL for production.
 - **Security**:
-    - API key authentication (`X-Api-Key` header) for all POST/PATCH routes with support for zero-downtime key rotation.
+    - API key authentication with zero-downtime rotation.
     - Rate limiting (20 requests/minute per IP, 200 requests/minute global).
-    - Comprehensive security headers: HSTS, CSP, COOP, COEP.
+    - Comprehensive security headers (HSTS, CSP, COOP, COEP).
     - Request size limits (512KB max body, 200KB max payload).
-    - JSON schema validation with `FormatChecker` for all API requests, including field length constraints and URL validation.
+    - JSON schema validation with `FormatChecker`.
     - Structured logging with IP and User-Agent tracking.
 - **Health & Monitoring**:
-    - `/health`, `/public/metrics`, `/ops/uptime`, `/ops/queue_health`, `/billing/health` endpoints for system status.
+    - Dedicated endpoints for system status (`/health`, `/public/metrics`, etc.).
     - Sentry integration for telemetry and error tracking.
-- **Public Content**: Static files for legal documents (`privacy.html`, `terms.html`, `cookies.html`), FAQ (`index.html`), security information (`security.txt`), and API documentation (`openapi.json`).
-- **Database**: PostgreSQL (Neon) for production, SQLite for local development with WAL mode. Email indexing and PRAGMA optimizations are applied.
-- **Referral Tracking**: `referrals` database table, `POST /api/v1/referrals/track` endpoint, and integration into sign-in flow to capture referral parameters.
-- **Analytics Dashboard**: `GET /admin/analytics` endpoint and React component for displaying user metrics and top referral sources.
-- **Ops Summary Automation**: `scripts/ops_summary.py` for automated HTML email reports via Resend, covering system health, user metrics, and referral data.
-- **Phase 6.4 Intelligence & Revenue Loop** (Nov 2025):
-    - Anomaly AI: Statistical latency detection using Z-score + IQR methods
-    - Adaptive Pricing: Usage-aware pricing model with load factors and performance bonuses
-    - Profitability Ledger: Revenue/costs/payouts tracking via `/api/admin/ledger`
-    - Smart Alert Router: Multi-channel notifications (Slack, Telegram, Email)
-    - Feature Flags: DB-backed flags with admin UI at `/admin/flags`
-    - Stabilize Mode: One-click automation freeze for emergencies
-- **Phase 6.5 Intelligence Feedback & Growth Loop** (Nov 2025):
-    - Auto-Tuning Engine: SLO/p95 target optimization at `/ops/auto_tune`
-    - Growth Intelligence: Funnel analytics and ROI tracking by source
-    - Behavioral Cohort Retention: DAU/WAU/MAU tracking by referral source
-    - Dynamic Discount System: Usage-aware discount code generation
-    - Profit-Driven Autoscale: Prevents scale-up when margin < 10%
-    - Weekly Governance Reporter: Automated HTML email summaries
-    - APScheduler: 11 automated jobs (retention, SLO, ops, cost, KV sync, growth, governance, health, cost collector, Sentry, pulse)
-- **After-Launch Automation** (Nov 11, 2025):
-    - Health Monitor: 6-hour endpoint checks for levqor.ai and api.levqor.ai/health
-    - Cost Collector: Daily Stripe revenue and spend tracking
-    - Sentry Test: Weekly error tracking health verification
-    - Weekly Pulse: Friday summary of uptime, revenue, users, and churn
-    - All automation integrated into APScheduler (scripts/automation/*.py)
-- **Expansion: Integrity + Finalizer Pack** (Nov 11, 2025):
-    - E2E integrity testing system with 10 comprehensive checks
-    - Finalizer validation with 12 deployment readiness checks
-    - PDF evidence report generation via reportlab
-    - Stripe product configured (One-time: $49, Monthly: $19)
-    - Complete CLI runner and documentation
-    - Revenue-ready sellable feature for enterprise customers
-    - Notion auto-logging for every integrity run with pass/fail status
-- **Notion Integration** (Nov 11, 2025):
-    - Helper module for Notion API integration
-    - Automation scripts updated to log to Notion databases
-    - System Health Log, Cost Dashboard, and Pulse tracking
-    - Test script for verifying Notion connectivity
-- **Expansion Monitoring Infrastructure** (Nov 11, 2025):
-    - Enhanced weekly_pulse.py with 4 expansion metrics: integrity runs, template sales, API revenue, white-label inquiries
-    - Extended cost_collector.py with Stripe fees, addon revenue, and net margin calculation
-    - Integrity Pack auto-logs results to NOTION_INTEGRITY_DB_ID with pass/fail status
-    - Created expansion_verifier.py for nightly health checks (Notion, Stripe, cost thresholds)
-    - Created generate_expansion_monitor.py for weekly auto-generated EXPANSION-MONITOR.md reports
-    - APScheduler expanded to 13 jobs: added expansion_verifier (nightly 2 AM UTC) and expansion_monitor (Friday 3 PM London)
-    - Comprehensive tracking for all 4 expansion products: Integrity Pack, Template Library, API Tier, White-Label Edition
-- **v7.0 Intelligence + Evolution Layer** (Nov 11, 2025):
-    - Automation Intelligence: 15-min metrics collection, anomaly detection (Z-score+IQR), self-healing actions
-    - Decision Engine: Weekly trend analysis with automated optimization recommendations
-    - AI Advisor: Revenue/churn forecasting, partner ecosystem health scoring
-    - Governance Feedback: Risk scoring (0-100) based on audits, partners, incidents
-    - Dynamic Scaling: Hourly load checks with auto-scale decision engine
-    - Intelligence Dashboard: Real-time UI at /intelligence with metrics, forecasts, alerts
-    - Backend API: /api/intelligence/status endpoint with comprehensive intelligence data
-    - Modules: modules/auto_intel, modules/decision_engine, modules/ai_advisor, modules/governance_ai, modules/autoscale
-    - APScheduler: 16 automated jobs (13 existing + 3 intelligence: monitor every 15min, weekly analysis, hourly scaling)
-    - Database Tables: system_health_log, intel_events, intel_actions, intel_recommendations, governance_scores, ai_insights, scale_events
-- **Developer Portal - Phase 1 Expansion** (Nov 11, 2025):
-    - Complete B2D (Business-to-Developer) platform unlocking ecosystem growth
-    - Database: `developer_keys` and `api_usage_log` tables for key management and analytics
-    - Backend API: `/api/developer/keys` (POST/GET/DELETE), `/api/developer/usage` for quota tracking
-    - Sandbox API: Mock endpoints at `/api/sandbox/*` (jobs, metrics, users) for safe testing
-    - Billing: `/api/billing/checkout` for Stripe checkout session creation
-    - Rate Limiting: Automatic quota enforcement per tier with 429 responses when exceeded
-    - Three Tiers:
-        - Sandbox: 1,000 calls/month - Free
-        - Pro: 10,000 calls/month - $19/month (STRIPE_PRICE_DEV_PRO)
-        - Enterprise: Unlimited - $199/month (STRIPE_PRICE_DEV_ENTERPRISE)
-    - Frontend: `/developer` landing with upgrade flow, `/developer/keys` management UI, `/developer/docs` interactive documentation
-    - OpenAPI Spec: Complete API documentation at `/public/openapi.json`
-    - Notion Integration: API key creation/revocation auto-logged to NOTION_API_KEYS_DB_ID
-    - Security: JWT-based authentication for key management, x-api-key header for sandbox API calls
-    - Revenue Target: $35k ARR from developer tiers (100 sandbox → 50 Pro → 5 Enterprise by Month 3)
-- **Data Insights + Reports - Phase 2 Expansion** (Nov 11, 2025):
-    - Thought-leadership data product with anonymized platform insights
-    - Modules: `modules/data_insights/` (aggregator, report_builder, uploader)
-    - Backend API: `/api/insights/preview` (GET aggregated KPIs), `/api/insights/report` (POST generate PDF)
-    - Data Sources: API usage, integrity runs, revenue, uptime from existing telemetry
-    - PDF Reports: Generated via reportlab with quarterly metrics summary
-    - Google Drive: Auto-upload with shareable public links (requires DRIVE_SERVICE_ACCOUNT_JSON)
-    - Frontend: `/insights/data` page with metric cards and report generation UI
-    - Automation: `scripts/automation/insights_quarterly.py` for scheduled report generation
-    - Metrics Tracked: Revenue, MRR, API calls, uptime, integrity runs, net margin
-    - Privacy: All data anonymized and aggregated, no PII included
-- **Partner API + Registry - Phase 3 Expansion** (Nov 11, 2025):
-    - Third-party developer partner ecosystem enabling infinite feature growth
-    - Database: `partners` table with verification status, revenue share, and Stripe Connect integration
-    - Modules: `modules/partner_api/` (registry, hooks, auth, notion_sync)
-    - Backend API: `/api/partners/register` (POST), `/api/partners` (GET list), `/api/partners/<id>` (GET/PATCH/DELETE)
-    - Webhook System: Event notifications sent to partner webhook URLs for key events
-    - Partner Authentication: HMAC-based token system for secure partner API access
-    - Notion Integration: Auto-logs partner registrations to NOTION_PARTNER_REGISTRY_DB_ID for transparency
-    - Revenue Sharing: Default 70/30 split, Stripe Connect ready for automated payouts
-    - Security: HTTPS-only webhooks, email uniqueness, soft-delete for deactivation
-    - Verification Workflow: Partners register → pending approval → admin verifies → access granted
-    - Foundation for Phase 4 (Marketplace) and Phase 5 (Governance)
-- **Marketplace + Stripe Connect - Phase 4 Expansion** (Nov 11, 2025):
-    - Partner-built modules and integrations marketplace with automated revenue sharing
-    - Database: `listings` and `marketplace_orders` tables for catalog and transaction tracking
-    - Modules: `modules/marketplace/` (listings, payouts, notion_sync)
-    - Backend API: `/api/marketplace/listings` (GET/POST/PATCH/DELETE), partner earnings tracking
-    - Stripe Connect: Automated 70/30 revenue split and payout processing
-    - Categories: Automation, Templates, Integrations, Modules, Workflows
-    - Listing Management: Verification workflow, download tracking, ratings system
-    - Order Processing: Revenue split calculation, Stripe Payment Intent integration
-    - Payout System: Automated transfers to partner Stripe Connect accounts
-    - Frontend: `/marketplace` page with category filtering, partner CTA
-    - Notion Integration: Auto-logs listings to NOTION_MARKETPLACE_CATALOG_DB_ID and sales to NOTION_MARKETPLACE_SALES_DB_ID
-    - Revenue Potential: 30% platform fee on all marketplace sales
-- **Governance & Auditing - Phase 5 Expansion** (Nov 11, 2025):
-    - Security and compliance framework for partner ecosystem
-    - Policy Engine: JSON-based governance rules (revenue share, API restrictions, thresholds)
-    - Audit System: Automated partner compliance checks and reporting
-    - Review Cycle: Quarterly partner reviews with automated notifications
-    - Modules: `modules/governance/` (audit, review_cycle, policy.json)
-    - Audit Checks: Webhook HTTPS enforcement, rating thresholds, listing compliance
-    - Review Tracking: 90-day review cycles, overdue partner identification
-    - Automated Jobs: `scripts/automation/partner_audit.py` for scheduled audits
-    - Database: `audit_logs` table for audit history tracking
-    - Webhook Notifications: Partners receive audit and review notifications
-    - Notion Integration: Audit logs to NOTION_AUDIT_LOGS_DB_ID
-    - Compliance: Ensures partner ecosystem maintains security and quality standards
+    - Automated HTML email reports via Resend (`scripts/ops_summary.py`).
+- **Public Content**: Static files for legal documents, FAQs, security information, and OpenAPI documentation.
+- **Database**: PostgreSQL (Neon) for production, SQLite for local development with WAL mode.
+- **Referral Tracking**: Database table and API endpoint to track referrals.
+- **Analytics Dashboard**: Admin endpoint and React component for user metrics and referral sources.
+- **Intelligence Layer (v7.0)**:
+    - Anomaly AI for statistical latency detection.
+    - Adaptive Pricing based on usage and performance.
+    - Profitability Ledger for tracking revenue, costs, and payouts.
+    - Smart Alert Router for multi-channel notifications.
+    - DB-backed Feature Flags with an admin UI.
+    - Stabilize Mode for emergency automation freezes.
+    - Auto-Tuning Engine for SLO/p95 target optimization.
+    - Growth Intelligence for funnel analytics and ROI tracking.
+    - Behavioral Cohort Retention tracking.
+    - Dynamic Discount System.
+    - Profit-Driven Autoscale.
+    - Weekly Governance Reporter.
+- **Automated Jobs**: Extensive use of APScheduler for tasks like health monitoring, cost collection, Sentry testing, weekly pulse reports, insights generation, partner audits, and intelligence layer operations.
+- **Expansion Packs**:
+    - **Integrity + Finalizer Pack**: End-to-end integrity testing, deployment readiness checks, PDF evidence reports, and Stripe product integration.
+    - **Developer Portal**: B2D platform with API key management, sandbox API, billing tiers, and API documentation.
+    - **Data Insights + Reports**: Anonymized platform insights, PDF report generation, and Google Drive integration.
+    - **Partner API + Registry**: Third-party developer ecosystem with registration, webhooks, HMAC authentication, and Notion integration.
+    - **Marketplace + Stripe Connect**: Partner-built modules marketplace with automated revenue sharing and Stripe Connect for payouts.
+    - **Governance & Auditing**: Security and compliance framework for the partner ecosystem, including policy engine, audit system, and review cycles.
+- **Notion Integration**: Extensive integration for logging automation results, system health, costs, pulse, API keys, partner registrations, marketplace listings, and sales.
 
 ### Feature Specifications
-- **Job Orchestration**: Intake, status tracking, and simulated completion for development.
-- **User Authentication**: NextAuth v5 with Resend magic link authentication for the frontend.
-- **API Security**: Robust API key system, rate limiting, and extensive input validation.
-- **Operational Visibility**: Multiple health and monitoring endpoints, Sentry integration, and automated operational summaries.
-- **Scalability**: Designed for production with Gunicorn, Autoscale deployment, and planned database/queue enhancements.
+- **Job Orchestration**: Intake, status tracking, and simulated completion.
+- **User Authentication**: NextAuth v5 with Resend magic link.
+- **API Security**: API key system, rate limiting, and input validation.
+- **Operational Visibility**: Health endpoints, Sentry, and automated summaries.
+- **Scalability**: Designed for production with Gunicorn and Autoscale, with planned database/queue enhancements.
 
 ## External Dependencies
-- **Flask**: Web framework for the backend API.
-- **Gunicorn**: WSGI HTTP Server for production deployment of Flask.
-- **jsonschema**: For JSON schema validation of API requests.
-- **requests**: For making HTTP requests within the backend.
+- **Flask**: Web framework.
+- **Gunicorn**: WSGI HTTP Server.
+- **jsonschema**: JSON schema validation.
+- **requests**: HTTP requests.
 - **Next.js**: Frontend framework.
-- **TypeScript**: Programming language for the frontend.
-- **NextAuth v5**: Authentication library for Next.js.
-- **Resend**: Email API for magic link authentication and operational summaries.
+- **TypeScript**: Frontend language.
+- **NextAuth v5**: Authentication library.
+- **Resend**: Email API.
 - **PostgreSQL (Neon)**: Production database.
 - **SQLite**: Local development database.
-- **Sentry**: Error tracking and performance monitoring.
-- **Stripe**: Payment processing integration (health endpoint exists, full integration planned).
-- **reportlab**: PDF generation library for Integrity Pack evidence reports.
-- **Notion**: Workspace integration for logging automation results and metrics.
+- **Sentry**: Error tracking and monitoring.
+- **Stripe**: Payment processing.
+- **reportlab**: PDF generation.
+- **Notion**: Workspace integration.
+- **APScheduler**: Job scheduling.
