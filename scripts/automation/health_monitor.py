@@ -6,9 +6,13 @@ Pings levqor.ai and api.levqor.ai/health
 Logs to Notion if non-200 response
 """
 import os
+import sys
 import time
 import requests
 from datetime import datetime
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+from server.notion_helper import NotionHelper, notion_title, notion_rich_text, notion_number, notion_select, notion_date
 
 ENDPOINTS = [
     {"name": "Frontend", "url": "https://levqor.ai"},
@@ -58,8 +62,6 @@ def check_health():
 
 def log_to_notion(results):
     """Log health check results to Notion (if configured)"""
-    # TODO: Implement Notion API logging when database ID is provided
-    # For now, just log unhealthy endpoints
     unhealthy = [r for r in results if not r["healthy"]]
     
     if unhealthy:
@@ -68,6 +70,39 @@ def log_to_notion(results):
             print(f"  - {result['name']}: {result.get('status_code', 'ERROR')}")
     else:
         print(f"\n✅ All {len(results)} endpoints healthy")
+    
+    db_id = os.getenv("NOTION_HEALTH_DB_ID", "").strip()
+    
+    if not db_id:
+        print("ℹ️  NOTION_HEALTH_DB_ID not configured, skipping Notion logging")
+        print("   Add your database ID to Secrets to enable Notion integration")
+        return unhealthy
+    
+    try:
+        notion = NotionHelper()
+        logged_count = 0
+        
+        for result in results:
+            status = "Healthy" if result["healthy"] else ("Down" if result["status_code"] == 0 else "Degraded")
+            notes = result.get("error", "") if not result["healthy"] else ""
+            
+            properties = {
+                "Name": notion_title(result["name"]),
+                "Timestamp": notion_date(result["timestamp"]),
+                "Endpoint": notion_rich_text(result["url"]),
+                "Status": notion_select(status),
+                "Latency": notion_number(result["latency_ms"]),
+                "Notes": notion_rich_text(notes) if notes else notion_rich_text(""),
+            }
+            
+            notion.create_page(db_id, properties)
+            logged_count += 1
+        
+        print(f"✅ Health check logged to Notion ({logged_count} entries added)")
+        
+    except Exception as e:
+        print(f"⚠️  Notion logging failed: {str(e)}")
+        print("   Health check completed, but not logged to Notion")
     
     return unhealthy
 

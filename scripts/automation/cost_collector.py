@@ -6,8 +6,12 @@ Logs to Notion Cost Dashboard
 Alerts if Replit spend > $10
 """
 import os
+import sys
 import requests
 from datetime import datetime, timedelta
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+from server.notion_helper import NotionHelper, notion_title, notion_number, notion_checkbox, notion_date
 
 def get_replit_usage():
     """Get Replit usage and costs (mock for now)"""
@@ -88,7 +92,6 @@ def check_cost_alerts(data):
 
 def log_to_notion(data, alerts):
     """Log cost data to Notion dashboard"""
-    # TODO: Implement Notion API logging
     print("\n📊 Cost Dashboard Summary:")
     print(f"  Replit: ${data['replit']['total']:.2f}")
     print(f"  Stripe Revenue: ${data['stripe']['revenue']:.2f}")
@@ -99,6 +102,36 @@ def log_to_notion(data, alerts):
         print("\n🚨 ALERTS:")
         for alert in alerts:
             print(f"  {alert}")
+    
+    db_id = os.getenv("NOTION_COST_DB_ID", "").strip()
+    
+    if not db_id:
+        print("ℹ️  NOTION_COST_DB_ID not configured, skipping Notion logging")
+        print("   Add your database ID to Secrets to enable Notion integration")
+        return
+    
+    try:
+        notion = NotionHelper()
+        
+        total_cost = data['replit']['total'] + data['vercel']['bandwidth_gb']
+        today = datetime.utcnow().date().isoformat()
+        
+        properties = {
+            "Date": notion_title(today),
+            "Replit": notion_number(data['replit']['total']),
+            "Stripe Revenue": notion_number(data['stripe']['revenue']),
+            "Vercel": notion_number(data['vercel']['bandwidth_gb']),
+            "Failed Payments": notion_number(data['stripe']['failed_payments']),
+            "Total Cost": notion_number(total_cost),
+            "Alert": notion_checkbox(len(alerts) > 0),
+        }
+        
+        notion.create_page(db_id, properties)
+        print("✅ Cost data logged to Notion")
+        
+    except Exception as e:
+        print(f"⚠️  Notion logging failed: {str(e)}")
+        print("   Cost collection completed, but not logged to Notion")
 
 if __name__ == "__main__":
     print(f"💰 Cost Collection - {datetime.utcnow().isoformat()}")

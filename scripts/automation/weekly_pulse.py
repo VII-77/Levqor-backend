@@ -6,8 +6,12 @@ Sends to Notion and email
 Runs every Friday
 """
 import os
+import sys
 import requests
 from datetime import datetime, timedelta
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+from server.notion_helper import NotionHelper, notion_title, notion_number, notion_rich_text, notion_date
 
 def collect_pulse_data():
     """Collect weekly pulse metrics"""
@@ -63,14 +67,71 @@ Week ending: {pulse['week_ending']}
 
 def send_to_notion(pulse, summary):
     """Log pulse to Notion database"""
-    # TODO: Implement Notion API
     print(summary)
-    print("\n✅ Pulse logged to Notion (database ID needed)")
+    
+    db_id = os.getenv("NOTION_PULSE_DB_ID", "").strip()
+    
+    if not db_id:
+        print("ℹ️  NOTION_PULSE_DB_ID not configured, skipping Notion logging")
+        print("   Add your database ID to Secrets to enable Notion integration")
+        return
+    
+    try:
+        notion = NotionHelper()
+        
+        net_profit = pulse['revenue'] - pulse['total_spend']
+        
+        properties = {
+            "Week Ending": notion_title(pulse['week_ending']),
+            "Uptime": notion_number(pulse['uptime_percent']),
+            "Revenue": notion_number(pulse['revenue']),
+            "Active Users": notion_number(pulse['active_users']),
+            "Churn": notion_number(pulse['churn_count']),
+            "Net": notion_number(net_profit),
+            "Summary": notion_rich_text(summary),
+        }
+        
+        notion.create_page(db_id, properties)
+        print("✅ Pulse logged to Notion")
+        
+    except Exception as e:
+        print(f"⚠️  Notion logging failed: {str(e)}")
+        print("   Pulse collection completed, but not logged to Notion")
 
 def send_email_summary(summary):
-    """Send pulse summary via email"""
-    # TODO: Implement Gmail API or use Resend
-    print("✅ Email summary sent (Gmail API needed)")
+    """Send pulse summary via email using Resend"""
+    receiving_email = os.getenv("RECEIVING_EMAIL", "").strip()
+    resend_api_key = os.getenv("RESEND_API_KEY", "").strip()
+    
+    if not receiving_email or not resend_api_key:
+        print("ℹ️  Email not configured (RECEIVING_EMAIL or RESEND_API_KEY missing)")
+        return
+    
+    try:
+        import requests
+        
+        url = "https://api.resend.com/emails"
+        headers = {
+            "Authorization": f"Bearer {resend_api_key}",
+            "Content-Type": "application/json"
+        }
+        
+        payload = {
+            "from": "Levqor Pulse <noreply@levqor.ai>",
+            "to": [receiving_email],
+            "subject": f"📊 Weekly Pulse - {datetime.utcnow().strftime('%B %d, %Y')}",
+            "html": f"<pre>{summary}</pre>"
+        }
+        
+        response = requests.post(url, headers=headers, json=payload)
+        
+        if response.status_code == 200:
+            print("✅ Email summary sent via Resend")
+        else:
+            print(f"⚠️  Email send failed: {response.status_code}")
+            
+    except Exception as e:
+        print(f"⚠️  Email send error: {str(e)}")
 
 if __name__ == "__main__":
     print(f"📈 Weekly Pulse Collection - {datetime.utcnow().isoformat()}")
