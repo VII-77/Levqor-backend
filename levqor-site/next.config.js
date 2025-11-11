@@ -6,8 +6,9 @@ const securityHeaders = [
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+  { key: 'Cache-Control', value: 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0' },
 ];
 const nextConfig = {
-  async headers() { return [{ source: '/(.*)', headers: securityHeaders }]; },
+  async headers() { return [{ source: '/:path*', headers: securityHeaders }]; },
 };
 module.exports = nextConfig;
