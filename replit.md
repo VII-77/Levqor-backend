@@ -3,6 +3,8 @@
 ## Overview
 Levqor is a Flask-based job orchestration backend API designed for AI automation. It features robust validation, cost guardrails, job intake, status tracking, and comprehensive health monitoring. The project aims to provide a reliable and scalable solution for managing automated workflows, incorporating a full-stack approach with a Next.js frontend for user interaction.
 
+**🧠 v7.0 Intelligence Layer:** The platform now features autonomous self-optimization with AI-powered monitoring, anomaly detection, predictive analytics, and auto-scaling capabilities.
+
 ## User Preferences
 None documented yet.
 
@@ -73,6 +75,17 @@ The frontend is built with Next.js 14 and TypeScript, focusing on a clear authen
     - Created generate_expansion_monitor.py for weekly auto-generated EXPANSION-MONITOR.md reports
     - APScheduler expanded to 13 jobs: added expansion_verifier (nightly 2 AM UTC) and expansion_monitor (Friday 3 PM London)
     - Comprehensive tracking for all 4 expansion products: Integrity Pack, Template Library, API Tier, White-Label Edition
+- **v7.0 Intelligence + Evolution Layer** (Nov 11, 2025):
+    - Automation Intelligence: 15-min metrics collection, anomaly detection (Z-score+IQR), self-healing actions
+    - Decision Engine: Weekly trend analysis with automated optimization recommendations
+    - AI Advisor: Revenue/churn forecasting, partner ecosystem health scoring
+    - Governance Feedback: Risk scoring (0-100) based on audits, partners, incidents
+    - Dynamic Scaling: Hourly load checks with auto-scale decision engine
+    - Intelligence Dashboard: Real-time UI at /intelligence with metrics, forecasts, alerts
+    - Backend API: /api/intelligence/status endpoint with comprehensive intelligence data
+    - Modules: modules/auto_intel, modules/decision_engine, modules/ai_advisor, modules/governance_ai, modules/autoscale
+    - APScheduler: 16 automated jobs (13 existing + 3 intelligence: monitor every 15min, weekly analysis, hourly scaling)
+    - Database Tables: system_health_log, intel_events, intel_actions, intel_recommendations, governance_scores, ai_insights, scale_events
 - **Developer Portal - Phase 1 Expansion** (Nov 11, 2025):
     - Complete B2D (Business-to-Developer) platform unlocking ecosystem growth
     - Database: `developer_keys` and `api_usage_log` tables for key management and analytics

@@ -2,6 +2,10 @@
 Intelligence Monitor - Automated Intelligence Layer Execution
 Runs all intelligence components on schedule
 """
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
 from modules.auto_intel import collect_metrics, detect_anomalies, attempt_fix
 from modules.decision_engine import analyze_trends
 from modules.ai_advisor import generate_ai_insights
