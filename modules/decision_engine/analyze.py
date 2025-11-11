@@ -174,6 +174,16 @@ def get_recent_recommendations(limit: int = 5) -> List[Dict]:
     db = get_db()
     cursor = db.cursor()
     
+    # Ensure table exists
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS intel_recommendations(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp TEXT NOT NULL,
+            recommendations TEXT NOT NULL,
+            metrics TEXT NOT NULL
+        )
+    """)
+    
     cursor.execute("""
         SELECT timestamp, recommendations, metrics
         FROM intel_recommendations

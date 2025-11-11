@@ -203,8 +203,9 @@ def get_recent_anomalies(limit: int = 10) -> List[Dict]:
     cursor = db.cursor()
     
     cursor.execute("""
-        SELECT event, value, mean, timestamp, metadata
+        SELECT event_type, severity, message, timestamp, metadata
         FROM intel_events
+        WHERE severity IN ('high', 'critical')
         ORDER BY timestamp DESC
         LIMIT ?
     """, (limit,))
@@ -216,8 +217,8 @@ def get_recent_anomalies(limit: int = 10) -> List[Dict]:
     for row in rows:
         anomalies.append({
             'event': row[0],
-            'value': row[1],
-            'mean': row[2],
+            'severity': row[1],
+            'message': row[2],
             'timestamp': row[3],
             'metadata': json.loads(row[4]) if row[4] else {}
         })

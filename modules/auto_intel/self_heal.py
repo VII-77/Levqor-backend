@@ -96,14 +96,13 @@ def attempt_fix(issue: str, context: Optional[Dict] = None) -> bool:
         """)
         
         cursor.execute("""
-            INSERT INTO intel_actions (action, issue, success, timestamp, context)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO intel_actions (timestamp, action_type, status, details)
+            VALUES (?, ?, ?, ?)
         """, (
-            action_taken,
-            issue,
-            1 if success else 0,
             datetime.utcnow().isoformat(),
-            str(context)
+            action_taken,
+            'success' if success else 'failed',
+            json.dumps({'issue': issue, 'context': context})
         ))
         
         db.commit()
@@ -127,7 +126,7 @@ def get_recent_actions(limit: int = 10) -> list:
     cursor = db.cursor()
     
     cursor.execute("""
-        SELECT action, issue, success, timestamp, context
+        SELECT timestamp, action_type, status, details
         FROM intel_actions
         ORDER BY timestamp DESC
         LIMIT ?
@@ -138,12 +137,13 @@ def get_recent_actions(limit: int = 10) -> list:
     
     actions = []
     for row in rows:
+        details = json.loads(row[3]) if row[3] else {}
         actions.append({
-            'action': row[0],
-            'issue': row[1],
-            'success': bool(row[2]),
-            'timestamp': row[3],
-            'context': row[4]
+            'timestamp': row[0],
+            'action': row[1],
+            'status': row[2],
+            'issue': details.get('issue', 'N/A'),
+            'context': details.get('context', {})
         })
     
     return actions
