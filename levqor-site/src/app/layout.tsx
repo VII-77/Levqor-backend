@@ -5,6 +5,9 @@ import './globals.css'
 
 // Force cache clear - deployment timestamp: 2025-11-11T12:32
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export const metadata: Metadata = {
   metadataBase: new URL('https://levqor.ai'),
   title: {
