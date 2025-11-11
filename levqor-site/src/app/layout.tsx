@@ -2,9 +2,8 @@ import type { Metadata } from 'next'
 import { Providers } from '@/components/providers'
 import Link from 'next/link'
 import './globals.css'
-import JsonLd from '@/components/JsonLd'
 
-// Force cache clear - deployment timestamp: 2025-11-11T12:20
+// Force cache clear - deployment timestamp: 2025-11-11T12:32
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://levqor.ai'),
@@ -63,8 +62,7 @@ export default function RootLayout({
     <html lang="en">
       <head>
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        <JsonLd />
-  </head>
+      </head>
       <body className="antialiased tracking-tight">
         <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
           <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
