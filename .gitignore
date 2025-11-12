@@ -52,3 +52,7 @@ levqor-backup.tar.gz
 backups/
 levqor-backup.tar.gz
 levqor-backup.tar.gz
+*.bundle
+*backup*.tar.gz
+**/.next/**
+node_modules/
